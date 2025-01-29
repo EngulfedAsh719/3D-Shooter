@@ -1,0 +1,122 @@
+fileFormatVersion: 2
+guid: 03aefe30b2dd2664fbc40d3beae8ac8b
+ModelImporter:
+  serializedVersion: 18
+  fileIDToRecycleName:
+    100000: Canopy1
+    100002: Canopy2_Cube.004
+    100004: Chair
+    100006: Parasol
+    100008: //RootNode
+    100010: Table
+    100012: Canopy1_001
+    100014: Canopy2_Cube_004
+    100016: Chair_001
+    100018: Parasol_001
+    100020: Table_001
+    400000: Canopy1
+    400002: Canopy2_Cube.004
+    400004: Chair
+    400006: Parasol
+    400008: //RootNode
+    400010: Table
+    400012: Canopy1_001
+    400014: Canopy2_Cube_004
+    400016: Chair_001
+    400018: Parasol_001
+    400020: Table_001
+    2300000: Canopy1
+    2300002: Canopy2_Cube.004
+    2300004: Chair
+    2300006: Parasol
+    2300008: Table
+    2300010: Canopy1_001
+    2300012: Canopy2_Cube_004
+    2300014: Chair_001
+    2300016: Parasol_001
+    2300018: Table_001
+    3300000: Canopy1
+    3300002: Canopy2_Cube.004
+    3300004: Chair
+    3300006: Parasol
+    3300008: Table
+    3300010: Canopy1_001
+    3300012: Canopy2_Cube_004
+    3300014: Chair_001
+    3300016: Parasol_001
+    3300018: Table_001
+    4300000: Parasol
+    4300002: Chair
+    4300004: Table
+    4300006: Canopy2_Cube.004
+    4300008: Canopy1
+    4300010: Chair_001
+    4300012: Table_001
+    4300014: Parasol_001
+    4300016: Canopy2_Cube_004
+    4300018: Canopy1_001
+    9500000: //RootNode
+  materials:
+    importMaterials: 1
+    materialName: 0
+    materialSearch: 2
+  animations:
+    legacyGenerateAnimations: 4
+    bakeSimulation: 0
+    optimizeGameObjects: 0
+    motionNodeName: 
+    animationImportErrors: 
+    animationImportWarnings: 
+    animationRetargetingWarnings: 
+    animationDoRetargetingWarnings: 0
+    animationCompression: 1
+    animationRotationError: .5
+    animationPositionError: .5
+    animationScaleError: .5
+    animationWrapMode: 0
+    extraExposedTransformPaths: []
+    clipAnimations: []
+    isReadable: 1
+  meshes:
+    lODScreenPercentages: []
+    globalScale: 1
+    meshCompression: 0
+    addColliders: 0
+    importBlendShapes: 1
+    swapUVChannels: 0
+    generateSecondaryUV: 0
+    useFileUnits: 1
+    optimizeMeshForGPU: 1
+    keepQuads: 0
+    weldVertices: 1
+    secondaryUVAngleDistortion: 8
+    secondaryUVAreaDistortion: 15.000001
+    secondaryUVHardAngle: 88
+    secondaryUVPackMargin: 4
+    useFileScale: 0
+  tangentSpace:
+    normalSmoothAngle: 60
+    splitTangentsAcrossUV: 1
+    normalImportMode: 0
+    tangentImportMode: 1
+  importAnimation: 1
+  copyAvatar: 0
+  humanDescription:
+    human: []
+    skeleton: []
+    armTwist: .5
+    foreArmTwist: .5
+    upperLegTwist: .5
+    legTwist: .5
+    armStretch: .0500000007
+    legStretch: .0500000007
+    feetSpacing: 0
+    rootMotionBoneName: 
+    hasTranslationDoF: 0
+  lastHumanDescriptionAvatarSource: {instanceID: 0}
+  animationType: 2
+  humanoidOversampling: 1
+  additionalBone: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
