@@ -1,3 +1,2 @@
-This project is my current lead. It has been in my development for two weeks now
-
+В данном проекте сцена GameScene в папке Scenes является не актуальной. Актуальная сцена находится в директории ассета с локацией 
 Unity version: 6000.0.35f1
