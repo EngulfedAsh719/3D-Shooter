@@ -39,6 +39,14 @@ public class PlayerHealth : MonoBehaviour
         }
     }
 
+    public void Heal(float amount)
+    {
+        if (targetHealth <= 0) return; // Нельзя лечить мертвого игрока
+        
+        targetHealth = Mathf.Min(maxHealth, targetHealth + amount);
+        UpdateHealthBar();
+    }
+
     private void UpdateHealthBar()
     {
         if (healthBarImage != null)
@@ -51,4 +59,8 @@ public class PlayerHealth : MonoBehaviour
     {
         GameManager.Instance.PlayerDied();
     }
+
+    public float GetCurrentHealth() => currentHealth;
+    public float GetMaxHealth() => maxHealth;
+    public float GetHealthPercentage() => currentHealth / maxHealth;
 }

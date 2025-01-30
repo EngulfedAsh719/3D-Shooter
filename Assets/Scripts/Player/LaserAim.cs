@@ -13,8 +13,8 @@ public class LaserAim : MonoBehaviour
     public LayerMask hitLayer;
 
     [Header("Rotation Limits")]
-    [SerializeField] private float maxVerticalAngle = 60f; // Максимальный угол поворота вверх/вниз
-    [SerializeField] private float minVerticalAngle = -60f; // Минимальный угол поворота вверх/вниз
+    [SerializeField] private float maxVerticalAngle = 45f; 
+    [SerializeField] private float minVerticalAngle = -35f; 
 
     [Header("Aim Assist")]
     [SerializeField] private bool aimAssistEnabled = true;
@@ -22,7 +22,7 @@ public class LaserAim : MonoBehaviour
     [SerializeField] private float assistAngle = 30f;
     [SerializeField] private float assistStrength = 0.5f;
     [SerializeField] private LayerMask zombieLayer;
-    [SerializeField] private float targetHeightOffset = 1.5f; // Высота прицеливания (примерно уровень груди)
+    [SerializeField] private float targetHeightOffset = 1.5f;
 
     private GameObject laserFlare;
     private LineRenderer lineRenderer;
@@ -34,27 +34,26 @@ public class LaserAim : MonoBehaviour
     private Transform currentTarget;
     private float assistLerpFactor;
     private Transform playerBody;
+    private ShootingHandler shootingHandler;
 
     private void Start()
     {
         InitializeLaser();
-        playerBody = transform.parent; // Предполагаем, что LaserAim находится на дочернем объекте игрока
+        playerBody = transform.parent;
+        shootingHandler = GetComponent<ShootingHandler>();
     }
 
     private void InitializeLaser()
     {
-        // Создаем лазер
         GameObject laserObject = Instantiate(laserPrefab, transform.position, Quaternion.identity);
         laserObject.transform.parent = transform;
         lineRenderer = laserObject.GetComponent<LineRenderer>();
         
-        // Создаем вспышку лазера
         if (laserFlarePrefab != null)
         {
             laserFlare = Instantiate(laserFlarePrefab, transform.position, Quaternion.identity);
         }
 
-        // Инициализируем направление прицеливания
         aimDirection = transform.forward;
     }
 
@@ -67,45 +66,36 @@ public class LaserAim : MonoBehaviour
 
     private void HandleAiming()
     {
-        // Получаем входные данные мыши
         float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
         float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
 
-        // Обновляем углы поворота
         currentRotationX += mouseX;
         currentRotationY = Mathf.Clamp(currentRotationY - mouseY, minVerticalAngle, maxVerticalAngle);
 
-        // Получаем базовое направление прицеливания
         Vector3 baseAimDirection = Quaternion.Euler(currentRotationY, currentRotationX, 0) * Vector3.forward;
 
         if (aimAssistEnabled)
         {
-            // Ищем цель для автонаведения
             Transform target = FindBestTarget(baseAimDirection);
             
             if (target != null)
             {
-                // Если нашли новую цель
                 if (target != currentTarget)
                 {
                     currentTarget = target;
                     assistLerpFactor = 0f;
                 }
 
-                // Увеличиваем влияние автонаведения
                 assistLerpFactor = Mathf.Min(assistLerpFactor + Time.deltaTime * 2f, 1f);
 
-                // Вычисляем точку прицеливания (на уровне груди)
                 Vector3 targetPoint = target.position + Vector3.up * targetHeightOffset;
                 Vector3 directionToTarget = (targetPoint - laserStartingPoint.position).normalized;
                 
-                // Плавно смешиваем базовое направление и направление к цели
                 aimDirection = Vector3.Lerp(baseAimDirection, directionToTarget, 
                     assistLerpFactor * assistStrength);
             }
             else
             {
-                // Если цель потеряна, плавно возвращаемся к базовому направлению
                 currentTarget = null;
                 assistLerpFactor = Mathf.Max(assistLerpFactor - Time.deltaTime * 2f, 0f);
                 aimDirection = Vector3.Lerp(aimDirection, baseAimDirection, 
@@ -117,16 +107,13 @@ public class LaserAim : MonoBehaviour
             aimDirection = baseAimDirection;
         }
 
-        // Нормализуем направление
         aimDirection = aimDirection.normalized;
         
-        // Поворачиваем тело игрока по горизонтали
         if (playerBody != null)
         {
             playerBody.rotation = Quaternion.Euler(0, currentRotationX, 0);
         }
 
-        // Обновляем поворот лазера
         transform.rotation = Quaternion.LookRotation(aimDirection);
     }
 
@@ -141,19 +128,16 @@ public class LaserAim : MonoBehaviour
             if (!collider.TryGetComponent<ZombieHealth>(out var zombieHealth) || zombieHealth.IsDead())
                 continue;
 
-            // Вычисляем точку прицеливания на уровне груди
             Vector3 targetPoint = collider.transform.position + Vector3.up * targetHeightOffset;
             Vector3 directionToTarget = (targetPoint - laserStartingPoint.position).normalized;
             float angleToTarget = Vector3.Angle(baseDirection, directionToTarget);
 
             if (angleToTarget <= assistAngle)
             {
-                // Вычисляем оценку цели на основе угла и расстояния
                 float distanceScore = 1f - (Vector3.Distance(transform.position, collider.transform.position) / assistRadius);
                 float angleScore = 1f - (angleToTarget / assistAngle);
                 float score = (distanceScore + angleScore) * 0.5f;
 
-                // Добавляем небольшой бонус текущей цели для стабильности
                 if (collider.transform == currentTarget)
                 {
                     score += 0.1f;
@@ -161,7 +145,6 @@ public class LaserAim : MonoBehaviour
 
                 if (score > bestScore)
                 {
-                    // Проверяем видимость цели
                     if (!Physics.Linecast(laserStartingPoint.position, targetPoint, 
                         hitLayer & ~zombieLayer))
                     {

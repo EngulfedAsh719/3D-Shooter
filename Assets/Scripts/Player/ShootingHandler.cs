@@ -40,11 +40,6 @@ public class ShootingHandler : MonoBehaviour
         laserAim = GetComponent<LaserAim>();
         userInput = GetComponent<UserInput>();
 
-        if (laserAim == null)
-        {
-            Debug.LogError("LaserAim component not found!");
-        }
-
         Bullets = maxBullets;
         fireRateTimer = fireRate;
     }

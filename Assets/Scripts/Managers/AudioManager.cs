@@ -16,6 +16,9 @@ public class AudioManager : MonoBehaviour
     public AudioClip zombieDeathClip;
     public AudioClip zombieIdleClip;
     public AudioClip zombieAttackClip;
+
+    [Header("Pickup Sounds")]
+    public AudioClip medkitPickupClip;
     
     [Header("Background Music")]
     public AudioClip backgroundMusic;
@@ -35,7 +38,7 @@ public class AudioManager : MonoBehaviour
     [Range(0f, 1f)] public float defaultZombieVolume = 0.8f;
     [Range(0f, 1f)] public float defaultFootstepsVolume = 0.6f;
 
-    private AudioSource audioSource; // Для общих звуков
+    private AudioSource audioSource; 
     private AudioSource footstepSource;
     private AudioSource musicSource;
     private readonly List<AudioSource> activeZombieAudioSources = new List<AudioSource>();
@@ -302,6 +305,14 @@ public class AudioManager : MonoBehaviour
         }
 
         else Debug.Log("Звук анимации не назначем");
+    }
+
+    public void PlayMedkitPickup(Vector3 position)
+    {
+        if (medkitPickupClip != null)
+        {
+            audioSource.PlayOneShot(medkitPickupClip, sfxVolume * masterVolume);
+        }
     }
 
     private void Update()

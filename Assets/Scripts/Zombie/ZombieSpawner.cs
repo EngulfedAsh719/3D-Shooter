@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using System;
 
 public class ZombieSpawner : MonoBehaviour
 {
@@ -26,6 +27,8 @@ public class ZombieSpawner : MonoBehaviour
     private float currentSpawnInterval;
     private bool isSpawning;
     private bool isWaitingForNextWave;
+
+    public event Action OnWaveCompleted;
 
     private void Start()
     {
@@ -107,13 +110,13 @@ public class ZombieSpawner : MonoBehaviour
 
         isSpawning = false;
 
-        // Ждём пока все зомби будут убиты
         while (activeZombies.Count > 0)
         {
             yield return new WaitForSeconds(0.5f);
         }
 
-        // Проверяем, есть ли следующая волна
+        OnWaveCompleted?.Invoke();
+
         if (currentWave < zombiesPerWave.Length)
         {
             isWaitingForNextWave = true;
@@ -154,8 +157,8 @@ public class ZombieSpawner : MonoBehaviour
         if (spawnPoints.Length == 0 || zombiePrefabs.Length == 0)
             return;
 
-        Transform spawnPoint = spawnPoints[Random.Range(0, spawnPoints.Length)];
-        GameObject zombiePrefab = zombiePrefabs[Random.Range(0, zombiePrefabs.Length)];
+        Transform spawnPoint = spawnPoints[UnityEngine.Random.Range(0, spawnPoints.Length)];
+        GameObject zombiePrefab = zombiePrefabs[UnityEngine.Random.Range(0, zombiePrefabs.Length)];
 
         GameObject zombieObject = Instantiate(zombiePrefab, spawnPoint.position, spawnPoint.rotation);
         ZombieAI zombie = zombieObject.GetComponent<ZombieAI>();

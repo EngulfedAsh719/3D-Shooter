@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.AI;
 using System;
+using System.Collections.Generic;
 
 public class ZombieAI : MonoBehaviour 
 {
@@ -8,138 +9,244 @@ public class ZombieAI : MonoBehaviour
     [SerializeField] private float attackDistance = 2f;
     [SerializeField] private float damageAmount = 5f;
     [SerializeField] private float attackCooldown = 2f;
-    [SerializeField] private float damageDelay = 0.5f;
-
+    [SerializeField] private float[] attackTimings = new float[] { 0.57f, 1.52f };
+    [SerializeField] private float attackAnimationLength = 2.479f;
+    
     [Header("Movement")]
     [SerializeField] private float rotationSpeed = 10f;
+    [SerializeField] private float pathUpdateInterval = 0.2f;
+    [SerializeField] private float minimumStoppingDistance = 1.5f;
+    [SerializeField] private float velocityThreshold = 0.1f;
+
+    [Header("Attack Interruption")]
+    [SerializeField] private float attackInterruptDistance = 2.5f;
+    [SerializeField] private float reducedCooldownMultiplier = 0.5f;
 
     private NavMeshAgent agent;
     private Animator animator;
     private Transform target;
     private PlayerHealth playerHealth;
+    private Collider zombieCollider;
     
     private float attackTimer;
     private bool isAttacking;
     private bool isDead;
+    private HashSet<int> dealtDamageForTimings;
+    private float currentAttackTime;
+    private float nextPathUpdate;
+    private bool isAttackReady = true;
 
-    // Строковые идентификаторы для анимаций
-    private const string IS_WALKING = "isWalking";
-    private const string IS_ATTACKING = "isAttacking";
-    private const string DIE = "Die";
+    private static readonly int IsWalkingHash = Animator.StringToHash("isWalking");
+    private static readonly int IsAttackingHash = Animator.StringToHash("isAttacking");
+    private static readonly int DieHash = Animator.StringToHash("Die");
 
     public event Action<ZombieAI> OnZombieDeath;
     public event Action OnAttackPerformed;
 
-    public void Initialize(Transform playerTransform)
+    private void Awake()
     {
-        if (playerTransform == null)
-        {
-            Debug.LogError($"Player Transform is null in {gameObject.name}!");
-            return;
-        }
-
-        target = playerTransform;
         InitializeComponents();
-        enabled = true;
     }
 
     private void InitializeComponents()
     {
         agent = GetComponent<NavMeshAgent>();
         animator = GetComponent<Animator>();
-        
-        if (target != null)
+        zombieCollider = GetComponent<Collider>();
+        dealtDamageForTimings = new HashSet<int>();
+
+        if (agent != null)
         {
-            playerHealth = target.GetComponent<PlayerHealth>();
+            agent.stoppingDistance = minimumStoppingDistance;
+            agent.updateRotation = false;
+            agent.autoBraking = true;
+        }
+    }
+
+    public void Initialize(Transform playerTransform)
+    {
+        if (playerTransform == null) return;
+
+        target = playerTransform;
+        playerHealth = target.GetComponent<PlayerHealth>();
+        
+        if (playerHealth == null)
+        {
+            enabled = false;
+            return;
         }
 
-        if (agent == null || animator == null || playerHealth == null)
-        {
-            Debug.LogError($"Missing required components on {gameObject.name}!");
-            enabled = false;
-        }
+        ResetState();
+        enabled = true;
+    }
+
+    private void ResetState()
+    {
+        isAttacking = false;
+        isDead = false;
+        currentAttackTime = 0f;
+        attackTimer = 0f;
+        nextPathUpdate = 0f;
+        isAttackReady = true;
+        dealtDamageForTimings.Clear();
+
+        UpdateAnimatorState(false, true);
     }
 
     private void Update()
     {
-        if (isDead || target == null || !enabled) return;
+        if (ShouldSkipUpdate()) return;
 
-        float distanceToTarget = Vector3.Distance(transform.position, target.position);
-        
-        if (distanceToTarget <= attackDistance)
+        UpdateTimers();
+        UpdateBehavior();
+        UpdateRotation();
+    }
+
+    private void UpdateTimers()
+    {
+        if (attackTimer > 0)
         {
-            HandleAttack();
+            attackTimer -= Time.deltaTime;
+            if (attackTimer <= 0)
+            {
+                isAttackReady = true;
+            }
         }
-        else
+
+        if (isAttacking)
         {
-            HandleMovement();
+            currentAttackTime += Time.deltaTime;
+            
+            // Check if we should interrupt the attack
+            float distanceToTarget = Vector3.Distance(transform.position, target.position);
+            if (distanceToTarget > attackInterruptDistance)
+            {
+                InterruptAttack();
+                return;
+            }
+
+            CheckAttackTimings();
+
+            if (currentAttackTime >= attackAnimationLength)
+            {
+                CompleteAttackAnimation();
+            }
         }
     }
 
-    private void HandleMovement()
+    private void InterruptAttack()
     {
-        if (agent == null) return;
-
         isAttacking = false;
-        attackTimer = 0f;
+        currentAttackTime = 0f;
+        dealtDamageForTimings.Clear();
         
-        animator.SetBool(IS_WALKING, true);
-        animator.SetBool(IS_ATTACKING, false);
-        
-        agent.isStopped = false;
-        agent.SetDestination(target.position);
+        // Set a reduced cooldown for interrupted attacks
+        attackTimer = attackCooldown * reducedCooldownMultiplier;
+
+        // Update animator and movement state
+        UpdateAnimatorState(false, true);
+        ResumeMovement();
     }
 
-    private void HandleAttack()
+    private bool ShouldSkipUpdate()
     {
-        if (!isAttacking)
-        {
-            StartAttack();
-        }
+        return isDead || target == null || !enabled || GameManager.Instance.isGamePaused;
+    }
 
-        UpdateAttack();
-        RotateTowardsTarget();
+    private void UpdateBehavior()
+    {
+        float distanceToTarget = Vector3.Distance(transform.position, target.position);
+        bool isInAttackRange = distanceToTarget <= attackDistance;
+        bool hasStoppedMoving = agent.velocity.magnitude < velocityThreshold;
+
+        if (isInAttackRange)
+        {
+            if (!isAttacking && isAttackReady && hasStoppedMoving)
+            {
+                StartAttack();
+            }
+            StopMovement();
+        }
+        else if (!isAttacking)
+        {
+            UpdatePathfinding();
+            ResumeMovement();
+        }
+    }
+
+    private void UpdatePathfinding()
+    {
+        if (Time.time >= nextPathUpdate)
+        {
+            agent.stoppingDistance = Mathf.Min(attackDistance * 0.8f, minimumStoppingDistance);
+            agent.SetDestination(target.position);
+            nextPathUpdate = Time.time + pathUpdateInterval;
+        }
     }
 
     private void StartAttack()
     {
         isAttacking = true;
-        attackTimer = 0f;
+        isAttackReady = false;
+        currentAttackTime = 0f;
+        dealtDamageForTimings.Clear();
         
-        animator.SetBool(IS_WALKING, false);
-        animator.SetBool(IS_ATTACKING, true);
-        
-        if (agent != null)
+        UpdateAnimatorState(true, false);
+        StopMovement();
+    }
+
+    private void CompleteAttackAnimation()
+    {
+        isAttacking = false;
+        currentAttackTime = 0f;
+        attackTimer = attackCooldown;
+
+        float distanceToTarget = Vector3.Distance(transform.position, target.position);
+        if (distanceToTarget > attackDistance)
+        {
+            UpdateAnimatorState(false, true);
+            ResumeMovement();
+        }
+    }
+
+    private void UpdateAnimatorState(bool attacking, bool walking)
+    {
+        if (animator != null)
+        {
+            animator.SetBool(IsAttackingHash, attacking);
+            animator.SetBool(IsWalkingHash, walking);
+        }
+    }
+
+    private void StopMovement()
+    {
+        if (agent != null && agent.isActiveAndEnabled)
         {
             agent.isStopped = true;
+            agent.velocity = Vector3.zero;
         }
+        UpdateAnimatorState(isAttacking, false);
     }
 
-    private void UpdateAttack()
+    private void ResumeMovement()
     {
-        attackTimer += Time.deltaTime;
-
-        if (attackTimer >= damageDelay && attackTimer < damageDelay + 0.02f)
+        if (agent != null && agent.isActiveAndEnabled)
         {
-            TryDealDamage();
+            agent.isStopped = false;
         }
-
-        if (attackTimer >= attackCooldown)
-        {
-            attackTimer = 0f;
-        }
+        UpdateAnimatorState(false, true);
     }
 
-    private void RotateTowardsTarget()
+    private void CheckAttackTimings()
     {
-        Vector3 direction = (target.position - transform.position).normalized;
-        direction.y = 0;
-        
-        if (direction != Vector3.zero)
+        for (int i = 0; i < attackTimings.Length; i++)
         {
-            Quaternion targetRotation = Quaternion.LookRotation(direction);
-            transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, 
-                Time.deltaTime * rotationSpeed);
+            if (!dealtDamageForTimings.Contains(i) && currentAttackTime >= attackTimings[i])
+            {
+                TryDealDamage();
+                dealtDamageForTimings.Add(i);
+                OnAttackPerformed?.Invoke();
+            }
         }
     }
 
@@ -151,12 +258,37 @@ public class ZombieAI : MonoBehaviour
         if (currentDistance <= attackDistance)
         {
             playerHealth.TakeDamage(damageAmount);
-            OnAttackPerformed?.Invoke();
+        }
+    }
+
+    private void UpdateRotation()
+    {
+        if (target == null) return;
+
+        Vector3 direction;
+        if (isAttacking || agent.isStopped)
+        {
+            direction = (target.position - transform.position).normalized;
+        }
+        else
+        {
+            direction = agent.velocity.normalized;
+        }
+
+        direction.y = 0;
+        
+        if (direction != Vector3.zero)
+        {
+            Quaternion targetRotation = Quaternion.LookRotation(direction);
+            transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, 
+                Time.deltaTime * rotationSpeed);
         }
     }
 
     public void OnDeath()
     {
+        if (isDead) return;
+
         isDead = true;
         enabled = false;
         
@@ -166,24 +298,20 @@ public class ZombieAI : MonoBehaviour
             agent.enabled = false;
         }
 
+        UpdateAnimatorState(false, false);
         if (animator != null)
         {
-            int randomDeathAnim = UnityEngine.Random.Range(1, 3);
-            animator.SetInteger(DIE, randomDeathAnim);
+            animator.SetInteger(DieHash, UnityEngine.Random.Range(1, 3));
+        }
+
+        if (zombieCollider != null)
+        {
+            zombieCollider.enabled = false;
         }
 
         OnZombieDeath?.Invoke(this);
     }
 
-    // Unity Editor Helpers
-    private void OnDrawGizmosSelected()
-    {
-        Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(transform.position, attackDistance);
-    }
-
-    // Public API
     public bool IsAttacking() => isAttacking;
     public bool IsDead() => isDead;
-    public float GetAttackDistance() => attackDistance;
 }
